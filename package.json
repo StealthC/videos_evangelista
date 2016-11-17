@@ -1,0 +1,21 @@
+{
+  "name": "list-videos-evangelista",
+  "version": "1.0.0",
+  "description": "",
+  "main": "build/index.js",
+  "scripts": {
+    "test": "TSC && node . c:/evangelista"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/core-js": "^0.9.34",
+    "@types/glob": "^5.0.30",
+    "@types/node": "^6.0.48",
+    "typescript": "^2.0.10"
+  },
+  "dependencies": {
+    "get-video-duration": "^0.1.0",
+    "glob": "^7.1.1"
+  }
+}
