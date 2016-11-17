@@ -1,59 +1,125 @@
+#!/usr/bin/env node
+
 import * as fs from 'fs';
 import * as path from 'path';
 import * as glob from 'glob';
+import * as moment from 'moment';
+
+let excelbuilder = require('msexcel-builder');
 
 let getDuration = require('get-video-duration');
 
 let dir = process.argv[2];
 if (!dir) {
-    throw new Error('É necessário informar um diretório!');
+    console.log('É necessário informar um diretório na forma (c:/dir/**/*.*)!');
+    process.exit(1);
+}
+let output = process.argv[3];
+if (!output) {
+    output = './results.xlsx';
 }
 
-function ListaDir(dir): Promise<string[]> {
+
+function formatBytes(bytes,decimals) {
+   if(bytes == 0) return '0 Byte';
+   let k = 1000; // or 1024 for binary
+   let dm = decimals + 1 || 3;
+   let sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+   let i = Math.floor(Math.log(bytes) / Math.log(k));
+   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+
+interface FileDetails {
+    name: string;
+    base: string;
+    ext: string;
+    dir: string;
+    size?: number;
+    duration?: number;
+    date?: Date;
+}
+
+function ProcessaArquivo(file): Promise<FileDetails> {
     return new Promise((resolve, reject) => {
-        fs.readdir(dir, (err, files) => {
+        let fd: FileDetails;
+        let parsed = path.parse(file);
+        fd = {
+            name: parsed.name,
+            base: parsed.base,
+            ext: parsed.ext,
+            dir: parsed.dir
+        }
+        fs.stat(file, (err, stats) => {
             if (err) {
                 reject(err);
             } else {
-                resolve(files);
+                fd.date = stats.birthtime;
+                fd.size = stats.size;
+                if (parsed.ext === '.mp4') {
+                    resolve(getDuration(file).then(duration => {
+                        fd.duration = duration;
+                        return fd;
+                    }));
+                } else {
+                    resolve(fd);
+                }
+            }
+        }); 
+    });
+}
+
+function ProcessaPastas(dir): Promise<FileDetails[]> {
+    return new Promise((resolve, reject) => {
+        glob(dir, (err, matches) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(Promise.all(matches.map(match => {
+                    return ProcessaArquivo(match);
+                })));
             }
         });
     });
 }
 
-function ProcessaArquivo(dir_base, dir, file): Promise<any> {
-    let filepath = path.join(dir_base, dir, file);
-    let parsed = path.parse(filepath);
-    if (parsed.ext === '.mp4' || parsed.ext === '.avi' || parsed.ext === '.mkv') {
-        return getDuration(filepath).then(duration => {
-            console.log(`${filepath} - ${duration}`);
-            return duration;
-        })
+
+
+ProcessaPastas(dir)
+.then(files => {
+    if (output.indexOf('.xlsx') < 0) {
+        output = `${output}.xlsx`;
     }
-}
+    let outputParsed = path.parse(output);
+    
+    // Create a new workbook file in current working-path
+    var workbook = excelbuilder.createWorkbook(outputParsed.dir, outputParsed.base);
 
-function ProcessaPastas(dir): Promise<any> {
-    return ListaDir(dir)
-    .then(subdirs => {
-        return Promise.all(subdirs.map(subdir => {
-            return ListaDir(path.join(dir, subdir))
-            .then(files => {
-                return Promise.all(files.map(file => {
-                    return ProcessaArquivo(dir, subdir, file);
-                }));
-            }).catch(err => {
-                if (err.code === 'ENOTDIR') {
-                    return;
-                } else {
-                    throw err;
-                }
-            });
-        }))
+    // Create a new worksheet with 10 columns and 12 rows
+    var sheet1 = workbook.createSheet('dados', 6, files.length + 1);
+
+    // Fill some data
+    sheet1.set(1, 1, 'Nome');
+    sheet1.set(2, 1, 'Data');
+    sheet1.set(3, 1, 'Tipo');
+    sheet1.set(4, 1, 'Tamanho');
+    sheet1.set(5, 1, 'Comprimento');
+    sheet1.set(6, 1, 'Local');
+    files.forEach((file, index) => {
+        let col = index + 2;
+        sheet1.set(1, col, file.name);
+        sheet1.set(2, col, moment(file.date).format('DD/MM/YYYY'));
+        sheet1.set(3, col, file.ext);
+        sheet1.set(4, col, formatBytes(file.size, 2));
+        if (file.duration) {
+            sheet1.set(5, col, moment.utc(file.duration * 1000).format("HH:mm:ss"));
+        }
+        sheet1.set(6, col, file.dir);
     });
-}
-
-
-
-ProcessaPastas(dir).catch(err => {
+    // Save it
+    workbook.save(function(err){
+        if (err) throw err;
+    });
+})
+.catch(err => {
     console.error(err);
 });
