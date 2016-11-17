@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as glob from 'glob';
 import * as moment from 'moment';
+import {Observable} from '@reactivex/rxjs';
 
 let excelbuilder = require('msexcel-builder');
 
@@ -40,6 +41,7 @@ interface FileDetails {
 }
 
 function ProcessaArquivo(file): Promise<FileDetails> {
+    console.log(`Processando ${file}`);
     return new Promise((resolve, reject) => {
         let fd: FileDetails;
         let parsed = path.parse(file);
@@ -69,14 +71,24 @@ function ProcessaArquivo(file): Promise<FileDetails> {
 }
 
 function ProcessaPastas(dir): Promise<FileDetails[]> {
+    let results: FileDetails[] = [];
     return new Promise((resolve, reject) => {
         glob(dir, (err, matches) => {
             if (err) {
                 reject(err);
             } else {
-                resolve(Promise.all(matches.map(match => {
-                    return ProcessaArquivo(match);
-                })));
+                Observable.from(matches).bufferCount(4)
+                .concatMap(matches => {
+                    return Promise.all(matches.map(match => {
+                        return ProcessaArquivo(match);
+                    }));
+                }).subscribe(next => {
+                    results = results.concat(next);
+                }, err => {
+                    reject(err);
+                }, () => {
+                    resolve(results);
+                });
             }
         });
     });

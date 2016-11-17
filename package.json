@@ -12,6 +12,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/chai": "^3.4.34",
     "@types/core-js": "^0.9.34",
     "@types/glob": "^5.0.30",
     "@types/moment": "^2.13.0",
@@ -19,6 +20,7 @@
     "typescript": "^2.0.10"
   },
   "dependencies": {
+    "@reactivex/rxjs": "^5.0.0-rc.3",
     "get-video-duration": "^0.1.0",
     "glob": "^7.1.1",
     "moment": "^2.16.0",

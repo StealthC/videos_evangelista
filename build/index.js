@@ -4,6 +4,7 @@ var fs = require('fs');
 var path = require('path');
 var glob = require('glob');
 var moment = require('moment');
+var rxjs_1 = require('@reactivex/rxjs');
 var excelbuilder = require('msexcel-builder');
 var getDuration = require('get-video-duration');
 var dir = process.argv[2];
@@ -25,10 +26,12 @@ function formatBytes(bytes, decimals) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
 function ProcessaArquivo(file) {
+    console.log("Processando " + file);
     return new Promise(function (resolve, reject) {
         var fd;
         var parsed = path.parse(file);
         fd = {
+            name: parsed.name,
             base: parsed.base,
             ext: parsed.ext,
             dir: parsed.dir
@@ -54,15 +57,25 @@ function ProcessaArquivo(file) {
     });
 }
 function ProcessaPastas(dir) {
+    var results = [];
     return new Promise(function (resolve, reject) {
         glob(dir, function (err, matches) {
             if (err) {
                 reject(err);
             }
             else {
-                resolve(Promise.all(matches.map(function (match) {
-                    return ProcessaArquivo(match);
-                })));
+                rxjs_1.Observable.from(matches).bufferCount(4)
+                    .concatMap(function (matches) {
+                    return Promise.all(matches.map(function (match) {
+                        return ProcessaArquivo(match);
+                    }));
+                }).subscribe(function (next) {
+                    results = results.concat(next);
+                }, function (err) {
+                    reject(err);
+                }, function () {
+                    resolve(results);
+                });
             }
         });
     });
@@ -86,7 +99,7 @@ ProcessaPastas(dir)
     sheet1.set(6, 1, 'Local');
     files.forEach(function (file, index) {
         var col = index + 2;
-        sheet1.set(1, col, file.base);
+        sheet1.set(1, col, file.name);
         sheet1.set(2, col, moment(file.date).format('DD/MM/YYYY'));
         sheet1.set(3, col, file.ext);
         sheet1.set(4, col, formatBytes(file.size, 2));
