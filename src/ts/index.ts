@@ -117,15 +117,15 @@ ProcessaPastas(dir)
     sheet1.set(5, 1, 'Comprimento');
     sheet1.set(6, 1, 'Local');
     files.forEach((file, index) => {
-        let col = index + 2;
-        sheet1.set(1, col, file.name);
-        sheet1.set(2, col, moment(file.date).format('DD/MM/YYYY'));
-        sheet1.set(3, col, file.ext);
-        sheet1.set(4, col, formatBytes(file.size, 2));
+        let linha = index + 2;
+        sheet1.set(1, linha, file.name);
+        sheet1.set(2, linha, moment(file.date).format('DD/MM/YYYY'));
+        sheet1.set(3, linha, file.ext);
+        sheet1.set(4, linha, formatBytes(file.size, 2));
         if (file.duration) {
-            sheet1.set(5, col, moment.utc(file.duration * 1000).format("HH:mm:ss"));
+            sheet1.set(5, linha, moment.utc(file.duration * 1000).format("HH:mm:ss"));
         }
-        sheet1.set(6, col, file.dir);
+        sheet1.set(6, linha, file.dir);
     });
     // Save it
     workbook.save(function(err){
